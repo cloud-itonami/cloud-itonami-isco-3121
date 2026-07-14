@@ -1,0 +1,11 @@
+[{:itonami.blueprint/social-impact [:operational-efficiency :worker-safety :equipment-coordination]
+  :itonami.blueprint/domain :mining/supervision
+  :itonami.blueprint/required-technologies [:robotics :identity :forms :dmn :bpmn :audit-ledger]
+  :itonami.blueprint/isco-08 "3121"
+  :itonami.blueprint/name "Mining Shift Supervisor Administrative Support"
+  :itonami.blueprint/governor :mining-supervisor-governor
+  :itonami.blueprint/robotics true
+  :db/id -1
+  :itonami.blueprint/status :public-oss
+  :itonami.blueprint/id "cloud-itonami-isco-3121"
+  :itonami.blueprint/license "AGPL-3.0-or-later"}]
