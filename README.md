@@ -65,36 +65,68 @@ Resolves via [`kotoba-lang/occupation`](https://github.com/kotoba-lang/occupatio
 ## Reference implementation (`:maturity :implemented`)
 
 Full itonami Actor pattern (per ADR-2607011000 / CLAUDE.md's Actors
-section): a real [`kotoba-lang/langgraph`](https://github.com/kotoba-lang/langgraph)
+section): a REAL, compiled
+[`kotoba-lang/langgraph`](https://github.com/kotoba-lang/langgraph)
 `StateGraph`, with the Advisor and Governor as distinct graph nodes and
-human-in-the-loop interrupt/resume via checkpointing.
+GENUINE human-in-the-loop interrupt/resume via checkpointing (not a
+same-call `:outcome` relabel). An earlier version of this repo's
+`build-graph` returned a plain `{:nodes :edges}` hashmap that was never
+passed through the real `langgraph.graph` builder API — decorative
+data, not an executable graph — and `run-request!` explicitly bypassed
+even that fake graph with a hand-rolled threading pipeline, admitting
+as much in its own comment ("Simplified stub: in a real implementation,
+this would invoke langgraph.graph/state-graph"). `store/log-record!`
+was declared and even referenced by the fake graph's `:commit` node map
+entry, but `run-request!` never actually invoked that node — dead code
+from the actor's point of view. `approve!` did not resume any real
+checkpoint; it just relabelled a plain map's `:outcome` key. That gap
+is now closed (`test/mining_supervisors/actor_test.cljc`).
 
 ```text
-:intake -> :advise -> :govern -> :decide -+-> :commit            (:ok? true)
-                                           +-> :request-approval   (:escalate? true, interrupt-before)
-                                           +-> :hold               (:hard? true)
+:intake -> :advise -> :govern -> :decide -+-> :commit                        (:hard? false, :escalate? false)
+                                           +-> :request-approval -> :commit    (:escalate? true, interrupt-before)
+                                           +-> :hold                          (:hard? true)
 ```
 
-- `src/mining_supervisors/store.cljc` — `Store` protocol + `MemStore`:
-  registered supervisors, registered mine-sites, committed shift records, an append-only audit ledger.
+- `src/mining_supervisors/store.cljc` — `Store` protocol + `MemStore` +
+  `DatomicStore` (via [`kotoba-lang/langchain-store`](https://github.com/kotoba-lang/langchain-store),
+  no hand-rolled EDN-blob codec): registered supervisors/mine-sites, and
+  the append-only audit ledger (`log-record!`/`get-audit-log`). Both
+  backends pass the same contract
+  (`test/mining_supervisors/store_contract_test.cljc`).
 - `src/mining_supervisors/advisor.cljc` — `Advisor` protocol; `mock-advisor`
   (deterministic, default) proposes a supervisory operation from a
   request; `llm-advisor` wraps a `langchain.model/ChatModel` — either
   way the advisor only ever produces a `:propose`-effect proposal,
   never a committed record, and LLM parse failures always yield
   `:confidence 0.0` (forces escalation, never fabricated confidence).
+  Its EDN response parsing now qualifies `read-string` to
+  `clojure.edn/read-string` (`:clj`) / `cljs.reader/read-string`
+  (`:cljs`) via a reader-conditional — the bare `read-string` it
+  previously called does not exist in `cljs.core` at all (only in
+  `cljs.reader`), a fleet-wide cljs-portability bug.
 - `src/mining_supervisors/governor.cljc` — `MiningSupervisorGovernor/check`: a pure
   function, wired as its own `:govern` node. Hard invariants
   (unregistered supervisor, unregistered mine-site, a proposal whose `:effect`
-  isn't `:propose`, or any operator-class op) always route to `:hold`.
-  Escalation invariants (`:flag-safety-concern`, high-risk site operations, or low advisor
-  confidence) always route to `:request-approval` — an `interrupt-before` node that the graph
-  checkpoints and only resumes on explicit human approval (`actor/approve!`).
+  isn't `:propose`, or any operator-class op) always route to `:hold` —
+  and take priority over any simultaneous escalation reason. Escalation
+  invariants (`:flag-safety-concern`, high-risk site operations, or low advisor
+  confidence) always route to `:request-approval` — a genuine
+  `interrupt-before` node the compiled graph pauses at (checkpointed) and
+  only resumes past on explicit human approval (`actor/approve!`, which
+  re-enters the SAME compiled graph via its own
+  `:request-approval -> :commit` edge).
 - `src/mining_supervisors/actor.cljc` — `build-graph`, `run-request!`,
-  `approve!`: the `langgraph.graph/state-graph` wiring itself.
+  `approve!`: the REAL `langgraph.graph/state-graph` wiring
+  (`state-graph`/`add-node`/`add-edge`/`add-conditional-edges`/
+  `compile-graph`). BOTH `:commit` and `:hold` durably append to the
+  real audit ledger (`store/log-record!`) — previously `log-record!` was
+  dead code from this actor's point of view, referenced only by the
+  fake graph's node map, never actually invoked.
 
 ```bash
-clojure -M:test
+clojure -M:lint       # clj-kondo, 0 errors
+clojure -M:dev:test    # 19 tests / 102 assertions, green
 ```
 
 This is what backs this repo's `:maturity :implemented` entry in
