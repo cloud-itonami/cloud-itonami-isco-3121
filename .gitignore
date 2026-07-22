@@ -1,0 +1,10 @@
+.clj-kondo/.cache
+.cpcache/
+.DS_Store
+.idea/
+.lsp/
+*.class
+*.jar
+*.swp
+*~
+target/

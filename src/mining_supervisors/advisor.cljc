@@ -20,7 +20,9 @@
      :rationale str}
 
   LLM parse failures always yield `:confidence 0.0` (never fabricate
-  confidence), which forces the governor to escalate/hold.")
+  confidence), which forces the governor to escalate/hold."
+  (:require #?(:clj [clojure.edn :as edn]
+               :cljs [cljs.reader :as edn])))
 
 (defprotocol Advisor
   (-advise [advisor store request] "request -> proposal map"))
@@ -49,9 +51,17 @@
    production targets, or determine mine-safety authority — those are supervisor/
    operator exclusive.")
 
-(defn- parse-proposal [content]
+(defn- parse-proposal
+  "Parses the LLM's EDN response via `clojure.edn/read-string` (:clj) /
+  `cljs.reader/read-string` (:cljs) -- NOT bare `read-string`, which
+  resolves to `clojure.core/read-string` under :clj but does not exist
+  in `cljs.core` at all (it lives only in `cljs.reader`), so this ns
+  previously failed to compile under ClojureScript -- the fleet-wide
+  cljs-portability bug (matches the reader-conditional `langchain-store.core`
+  already uses for the same `edn/read-string` call)."
+  [content]
   (try
-    (let [p (read-string content)]
+    (let [p (edn/read-string content)]
       (if (map? p)
         (assoc p :effect :propose)
         {:op :unknown :effect :propose :confidence 0.0 :stake :high

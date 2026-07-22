@@ -7,5 +7,52 @@
   :itonami.blueprint/robotics true
   :db/id -1
   :itonami.blueprint/status :public-oss
+  :itonami.blueprint/maturity :implemented
+  :itonami.blueprint/implemented-slice
+  "Mining Supervisor Advisor ⊣ Mining Supervisor Governor, a REAL compiled
+  `kotoba-lang/langgraph` StateGraph (`:intake -> :advise -> :govern ->
+  :decide -+-> :commit / :request-approval -> :commit / :hold`),
+  append-only audit ledger. Replaces a previously broken/fake actor:
+  `build-graph` returned a plain `{:nodes :edges}` hashmap that was
+  never passed through the real `langgraph.graph` builder API;
+  `run-request!` explicitly bypassed even that fake graph with a
+  hand-rolled threading pipeline and an admitted stub comment
+  (\"Simplified stub: in a real implementation, this would invoke
+  langgraph.graph/state-graph\"); `store/log-record!` was declared and
+  even referenced by the fake graph's `:commit` node map entry, but
+  `run-request!` never actually invoked that node -- dead code from
+  the actor's point of view; `approve!` did not resume any real
+  checkpoint, it just relabelled a plain map's `:outcome` key. Now: a
+  genuine `interrupt-before #{:request-approval}` + in-memory
+  checkpointer pauses escalated requests for real human sign-off
+  (`approve!` resumes the SAME compiled graph via the graph's own
+  `:request-approval -> :commit` edge, not a hand-rolled parallel
+  commit path), and BOTH `:commit` and `:hold` durably append to the
+  real audit ledger (`store/log-record!`) -- a held HARD-violation
+  proposal is now also queryable audit history, not silently
+  discarded. Verified independently outside the test harness: the
+  original (unmutated-identity) store instance's `get-audit-log` stays
+  empty through an interrupt and only gains an entry after a genuine
+  `approve!` resume -- and stays empty forever if `approve!` is never
+  called (the interrupt cannot be bypassed). Store gained a
+  `DatomicStore` (via `kotoba-lang/langchain-store`, no hand-rolled
+  EDN-blob codec) alongside `MemStore`, proven ≡ by a new
+  store-contract test (including append-order preservation across
+  multiple `log-record!` calls). `advisor.cljc`'s bare `read-string`
+  (a fleet-wide cljs-portability bug -- `cljs.core` has no
+  `read-string`, only `cljs.reader` does) is now a `:clj`/`:cljs`
+  reader-conditional to `clojure.edn/read-string` /
+  `cljs.reader/read-string`, matching `langchain-store.core`'s own
+  pattern. Four ops (`:log-shift-report` / `:coordinate-crew-assignment`
+  / `:coordinate-maintenance` / `:flag-safety-concern`), all `:effect
+  :propose` only. HARD invariants (unregistered supervisor,
+  unregistered mine-site, non-`:propose` effect, operator-class ops
+  -- extraction/blasting/production-targeting/mine-safety/equipment
+  sequencing) always `:hold`, and take priority over any simultaneous
+  escalation reason (proven at the compiled-graph routing level, not
+  just the governor unit tests). Escalation invariants
+  (`:flag-safety-concern`, `:risk-level :high` sites, low confidence)
+  always require human sign-off. 19 tests / 102 assertions green,
+  clj-kondo 0 errors."
   :itonami.blueprint/id "cloud-itonami-isco-3121"
   :itonami.blueprint/license "AGPL-3.0-or-later"}]
