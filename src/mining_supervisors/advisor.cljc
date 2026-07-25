@@ -53,7 +53,7 @@
 
 (defn- parse-proposal
   "Parses the LLM's EDN response via `clojure.edn/read-string` (:clj) /
-  `cljs.reader/read-string` (:cljs) -- NOT bare `read-string`, which
+  `cljs.reader/read-string` (:cljs) -- NOT bare `edn/read-string`, which
   resolves to `clojure.core/read-string` under :clj but does not exist
   in `cljs.core` at all (it lives only in `cljs.reader`), so this ns
   previously failed to compile under ClojureScript -- the fleet-wide
