@@ -125,8 +125,8 @@ is now closed (`test/mining_supervisors/actor_test.kotoba`).
   fake graph's node map, never actually invoked.
 
 ```bash
-clojure -M:lint       # clj-kondo, 0 errors
-clojure -M:dev:test    # 19 tests / 102 assertions, green
+kbb -M:lint       # clj-kondo, 0 errors
+kbb -M:dev:test    # 19 tests / 102 assertions, green
 ```
 
 This is what backs this repo's `:maturity :implemented` entry in

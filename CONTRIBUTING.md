@@ -10,12 +10,12 @@ exclusive decisions.
 1. Check GOVERNANCE.md for decision process.
 2. Ensure scope does not blur supervisor vs. operator boundaries.
 3. Add tests for new features.
-4. Run `clojure -M:test` and ensure all tests pass.
+4. Run `kbb -M:test` and ensure all tests pass.
 
 ## Testing
 
 ```bash
-clojure -M:test
+kbb -M:test
 ```
 
 ## Code style
