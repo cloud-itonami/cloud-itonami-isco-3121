@@ -1,0 +1,34 @@
+;; What this vertical's robot physically does, declared for
+;; kotoba.robotics.process (kotoba-lang/robotics). `kbb -M:dev:physics` runs it.
+;;
+;; README "Robotics premise": a coordination robot performs shift logging,
+;; crew assignment coordination and maintenance scheduling for mining shift
+;; supervisors (ISCO 3121). Its physical work is travelling the drifts: a
+;; shift-log round along a 400 m drift, and hauling a cart of maintenance
+;; spares over a muddy drift floor on battery.
+;;
+;; Every number without a cited source is marked `estimate` in its :basis.
+;; Replacing an estimate with a sourced value is this bot's growth work.
+{:physics/schema "itonami.physical-ai.spec.v1"
+ :repo "cloud-itonami/cloud-itonami-isco-3121"
+ :cases
+ [{:id :drift-shift-log-round
+   :kind :transport
+   :procedure "robot travels 400 m along a drift to collect the shift log at the working face"
+   :params {:max-time-s 3600.0 :mass-kg 60.0 :payload-kg 5.0 :distance-m 400.0 :a-max-mps2 0.4
+            :brake-decel-mps2 0.8 :drive-force-n 250.0 :crr 0.05
+            :cog-height-m 0.50 :support-half-length-m 0.30}
+   :sweep {:param :v-max-mps :values [0.5 0.8 1.0 1.2 1.5]}
+   :quantity :cycle-time-s
+   :limit {:max 600.0 :basis "estimate: one drift leg within ten minutes so the log reaches the supervisor before the shift handover"}
+   :boundary {:lo 0.3 :hi 2.0}}
+  {:id :spares-cart-muddy-drift
+   :kind :transport
+   :procedure "robot hauls a cart of maintenance spares 100 m over a muddy drift floor on battery"
+   :params {:mass-kg 80.0 :distance-m 100.0 :v-max-mps 1.0 :a-max-mps2 0.5
+            :brake-decel-mps2 0.8 :drive-force-n 250.0 :crr 0.10
+            :cog-height-m 0.50 :support-half-length-m 0.35}
+   :sweep {:param :payload-kg :values [20.0 50.0 80.0 110.0 140.0]}
+   :quantity :energy-j
+   :limit {:max 20000.0 :basis "estimate: share of one battery charge budgeted for a single spares leg underground"}
+   :boundary {:lo 1.0 :hi 170.0}}]}
